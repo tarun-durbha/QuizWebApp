@@ -11,7 +11,7 @@ import wrongNotification from '../../assets/audio/wrong-answer.mp3';
 import buttonSound from '../../assets/audio/button-sound.mp3';
 
 class Play extends Component {
-    constructor (props) {
+    constructor(props) {
         super(props);
         this.state = {
             questions,
@@ -31,7 +31,9 @@ class Play extends Component {
             nextButtonDisabled: false,
             previousButtonDisabled: true,
             previousRandomNumbers: [],
-            time: {}
+            time: {},
+            numberOfAnsweredQuestions: 0,
+            questionIndicators: []
         };
         this.interval = null;
         this.correctSound = React.createRef();
@@ -39,18 +41,22 @@ class Play extends Component {
         this.buttonSound = React.createRef();
     }
 
-    componentDidMount () {
+    componentDidMount() {
         const { questions, currentQuestion, nextQuestion, previousQuestion } = this.state;
         this.displayQuestions(questions, currentQuestion, nextQuestion, previousQuestion);
         this.startTimer();
+
+        const updatedQuestions = [...questions];
+        updatedQuestions[0].visited = true;
+        this.setState({ questions: updatedQuestions });
     }
 
-    componentWillUnmount () {
+    componentWillUnmount() {
         clearInterval(this.interval);
     }
 
     displayQuestions = (questions = this.state.questions, currentQuestion, nextQuestion, previousQuestion) => {
-        let { currentQuestionIndex } = this.state;   
+        let { currentQuestionIndex } = this.state;
         if (!isEmpty(this.state.questions)) {
             questions = this.state.questions;
             currentQuestion = questions[currentQuestionIndex];
@@ -63,57 +69,116 @@ class Play extends Component {
                 previousQuestion,
                 numberOfQuestions: questions.length,
                 answer,
-                previousRandomNumbers: []
+                previousRandomNumbers: [],
+                // Initialize question indicators with no color
+                questionIndicators: Array(questions.length).fill('')
             }, () => {
                 this.showOptions();
                 this.handleDisableButton();
             });
-        }     
+        }
     };
 
     handleOptionClick = (e) => {
-        if (e.target.innerHTML.toLowerCase() === this.state.answer.toLowerCase()) {
+        const { currentQuestionIndex, questions } = this.state;
+        const index = currentQuestionIndex;
+        const updatedQuestions = [...questions];
+        const clickedOption = e.target;
+        const correctAnswer = this.state.questions[currentQuestionIndex].answer.toLowerCase();
+        updatedQuestions[currentQuestionIndex].visited = true;
+        if (clickedOption.dataset.answer.toLowerCase() === correctAnswer) {
+            updatedQuestions[currentQuestionIndex].answered = true;
+            clickedOption.classList.add('correct-option');
             this.correctTimeout = setTimeout(() => {
                 this.correctSound.current.play();
             }, 500);
             this.correctAnswer();
         } else {
+            clickedOption.classList.add('wrong-option');
+            const optionsContainer = clickedOption.parentElement;
+            const options = optionsContainer.querySelectorAll('.option');
+
+            options.forEach(option => {
+                if (option.dataset.answer.toLowerCase() === correctAnswer) {
+                    option.classList.add('correct-option');
+                }
+            });
+            updatedQuestions[currentQuestionIndex].answered = true;
+
             this.wrongTimeout = setTimeout(() => {
                 this.wrongSound.current.play();
             }, 500);
             this.wrongAnswer();
         }
+        this.setState({ questions: updatedQuestions });
     }
 
+
+
+
     handleNextButtonClick = () => {
+        const optionsContainers = document.querySelectorAll('.options-container');
+        optionsContainers.forEach(container => {
+            const options = container.querySelectorAll('.option');
+            options.forEach(option => {
+                option.classList.remove('correct-option', 'wrong-option');
+            });
+        });
         this.playButtonSound();
         if (this.state.nextQuestion !== undefined) {
             this.setState(prevState => ({
                 currentQuestionIndex: prevState.currentQuestionIndex + 1
             }), () => {
+                const { questions } = this.state;
+                const updatedQuestions = [...questions];
+                updatedQuestions[this.state.currentQuestionIndex].visited = true;
+                this.setState({ questions: updatedQuestions });
                 this.displayQuestions(this.state.state, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
             });
         }
     };
 
+    // Function to handle "Previous" button click
     handlePreviousButtonClick = () => {
+        const optionsContainers = document.querySelectorAll('.options-container');
+        optionsContainers.forEach(container => {
+            const options = container.querySelectorAll('.option');
+            options.forEach(option => {
+                option.classList.remove('correct-option', 'wrong-option');
+            });
+        });
         this.playButtonSound();
         if (this.state.previousQuestion !== undefined) {
             this.setState(prevState => ({
                 currentQuestionIndex: prevState.currentQuestionIndex - 1
             }), () => {
+
+                const { questions } = this.state;
+                const updatedQuestions = [...questions];
+                updatedQuestions[this.state.currentQuestionIndex].visited = true;
+                this.setState({ questions: updatedQuestions });
+
                 this.displayQuestions(this.state.state, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
             });
         }
     };
 
+    // Function to handle "Quit" button click
     handleQuitButtonClick = () => {
+        const optionsContainers = document.querySelectorAll('.options-container');
+        optionsContainers.forEach(container => {
+            const options = container.querySelectorAll('.option');
+            options.forEach(option => {
+                option.classList.remove('correct-option', 'wrong-option');
+            });
+        });
         this.playButtonSound();
         if (window.confirm('Are you sure you want to quit?')) {
             this.props.history.push('/');
         }
     };
 
+    // Function to handle button click
     handleButtonClick = (e) => {
         switch (e.target.id) {
             case 'next-button':
@@ -131,33 +196,45 @@ class Play extends Component {
             default:
                 break;
         }
-        
+
     };
 
+    // Function to play button sound
     playButtonSound = () => {
         this.buttonSound.current.play();
     };
 
+    // Function to handle correct answer
     correctAnswer = () => {
         M.toast({
             html: 'Correct Answer!',
             classes: 'toast-valid',
             displayLength: 1500
         });
-        this.setState(prevState => ({
-            score: prevState.score + 1,
-            correctAnswers: prevState.correctAnswers + 1,
-            currentQuestionIndex: prevState.currentQuestionIndex + 1,
-            numberOfAnsweredQuestions: prevState.numberOfAnsweredQuestions + 1
-        }), () => {            
-            if (this.state.nextQuestion === undefined) {
-                this.endGame();
-            } else {
-                this.displayQuestions(this.state.questions, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
-            }
-        });
+        setTimeout(() => {
+            this.setState(prevState => ({
+                score: prevState.score + 1,
+                correctAnswers: prevState.correctAnswers + 1,
+                currentQuestionIndex: prevState.currentQuestionIndex + 1,
+                numberOfAnsweredQuestions: prevState.numberOfAnsweredQuestions + 1
+            }), () => {
+                if (this.state.nextQuestion === undefined) {
+                    this.endGame();
+                } else {
+                    const optionsContainers = document.querySelectorAll('.options-container');
+                    optionsContainers.forEach(container => {
+                        const options = container.querySelectorAll('.option');
+                        options.forEach(option => {
+                            option.classList.remove('correct-option', 'wrong-option');
+                        });
+                    });
+                    this.displayQuestions(this.state.questions, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
+                }
+            });
+        }, 5000);
     }
 
+    // Function to handle wrong answer
     wrongAnswer = () => {
         navigator.vibrate(1000);
         M.toast({
@@ -165,19 +242,29 @@ class Play extends Component {
             classes: 'toast-invalid',
             displayLength: 1500
         });
-        this.setState(prevState => ({
-            wrongAnswers: prevState.wrongAnswers + 1,
-            currentQuestionIndex: prevState.currentQuestionIndex + 1,
-            numberOfAnsweredQuestions: prevState.numberOfAnsweredQuestions + 1
-        }), () => {
-            if (this.state.nextQuestion === undefined) {
-                this.endGame();
-            } else {
-                this.displayQuestions(this.state.questions, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
-            }
-        });
+        setTimeout(() => {
+            this.setState(prevState => ({
+                wrongAnswers: prevState.wrongAnswers + 1,
+                currentQuestionIndex: prevState.currentQuestionIndex + 1,
+                numberOfAnsweredQuestions: prevState.numberOfAnsweredQuestions + 1
+            }), () => {
+                if (this.state.nextQuestion === undefined) {
+                    this.endGame();
+                } else {
+                    const optionsContainers = document.querySelectorAll('.options-container');
+                    optionsContainers.forEach(container => {
+                        const options = container.querySelectorAll('.option');
+                        options.forEach(option => {
+                            option.classList.remove('correct-option', 'wrong-option');
+                        });
+                    });
+                    this.displayQuestions(this.state.questions, this.state.currentQuestion, this.state.nextQuestion, this.state.previousQuestion);
+                }
+            });
+        }, 5000);
     }
 
+    // Remaining code remains unchanged...
     showOptions = () => {
         const options = Array.from(document.querySelectorAll('.option'));
 
@@ -237,14 +324,14 @@ class Play extends Component {
                 const randomNumber = Math.round(Math.random() * 3);
                 if (randomNumber !== indexOfAnswer) {
                     if (randomNumbers.length < 2 && !randomNumbers.includes(randomNumber) && !randomNumbers.includes(indexOfAnswer)) {
-                            randomNumbers.push(randomNumber);
-                            count ++;
+                        randomNumbers.push(randomNumber);
+                        count++;
                     } else {
                         while (true) {
                             const newRandomNumber = Math.round(Math.random() * 3);
                             if (!randomNumbers.includes(newRandomNumber) && newRandomNumber !== indexOfAnswer) {
                                 randomNumbers.push(newRandomNumber);
-                                count ++;
+                                count++;
                                 break;
                             }
                         }
@@ -333,20 +420,57 @@ class Play extends Component {
             this.props.history.push('/play/quizSummary', playerStats);
         }, 1000);
     }
+    jumpToQuestion(questionIndex) {
+        // Check if the questionIndex is within bounds
+        if (questionIndex >= 0 && questionIndex < this.state.questions.length) {
+            // Update the currentQuestionIndex in the state
+            this.setState(prevState => ({
+                currentQuestionIndex: questionIndex,
+                currentQuestion: prevState.questions[questionIndex]  // Update currentQuestion based on selected index
+            }));
 
-    render () {
-        const { 
-            currentQuestion, 
-            currentQuestionIndex, 
-            fiftyFifty, 
-            hints, 
+            // Mark the selected question as visited
+            const { questions } = this.state;
+            const updatedQuestions = [...questions];
+            updatedQuestions[questionIndex].visited = true;
+            this.setState({ questions: updatedQuestions });
+        }
+    }
+
+
+
+
+    render() {
+        const {
+            currentQuestion,
+            currentQuestionIndex,
+            fiftyFifty,
+            hints,
             numberOfQuestions,
-            time 
+            time
         } = this.state;
+
+        const questionNumbers = [];
+        for (let i = 0; i < numberOfQuestions; i++) {
+            questionNumbers.push(
+                <button
+                    key={i}
+                    className={classnames('question-number', {
+                        'answered': this.state.questions[i].answered && i !== currentQuestionIndex,
+                        'current': i === currentQuestionIndex,
+                        'unanswered': !this.state.questions[i].answered && this.state.questions[i].visited && i !== currentQuestionIndex,
+                    })}
+                    onClick={() => this.jumpToQuestion(i)}
+                >
+                    {i + 1}
+                </button>
+            );
+        }
 
         return (
             <Fragment>
                 <Helmet><title>Quiz Page</title></Helmet>
+
                 <Fragment>
                     <audio ref={this.correctSound} src={correctNotification}></audio>
                     <audio ref={this.wrongSound} src={wrongNotification}></audio>
@@ -354,6 +478,11 @@ class Play extends Component {
                 </Fragment>
                 <div className="questions">
                     <h2>Quiz Mode</h2>
+                    <div className="progress-container">
+                        <div className="question-numbers">
+                            {questionNumbers}
+                        </div>
+                    </div>
                     <div className="lifeline-container">
                         <p>
                             <span onClick={this.handleFiftyFifty} className="mdi mdi-set-center mdi-24px lifeline-icon">
@@ -374,38 +503,40 @@ class Play extends Component {
                                 'invalid': time.distance < 30000
                             })}>
                                 {time.minutes}:{time.seconds}
-                            <span  className="mdi mdi-clock-outline mdi-24px"></span></span>
+                                <span className="mdi mdi-clock-outline mdi-24px"></span></span>
                         </p>
                     </div>
                     <h5>{currentQuestion.question}</h5>
                     <div className="options-container">
-                        <p onClick={this.handleOptionClick} className="option">{currentQuestion.optionA}</p>
-                        <p onClick={this.handleOptionClick} className="option">{currentQuestion.optionB}</p>
-                    </div>
-                    <div className="options-container">
-                        <p onClick={this.handleOptionClick} className="option">{currentQuestion.optionC}</p>
-                        <p onClick={this.handleOptionClick} className="option">{currentQuestion.optionD}</p>
+                        <p onClick={this.handleOptionClick} className="option" data-answer={currentQuestion?.optionA?.toLowerCase()}>{currentQuestion.optionA}</p>
+                        <p onClick={this.handleOptionClick} className="option" data-answer={currentQuestion?.optionB?.toLowerCase()}>{currentQuestion.optionB}</p>
+
+
+                        <p onClick={this.handleOptionClick} className="option" data-answer={currentQuestion?.optionC?.toLowerCase()}>{currentQuestion.optionC}</p>
+                        <p onClick={this.handleOptionClick} className="option" data-answer={currentQuestion?.optionD?.toLowerCase()}>{currentQuestion.optionD}</p>
                     </div>
 
+
                     <div className="button-container">
-                        <button 
-                            className={classnames('', {'disable': this.state.previousButtonDisabled})}
-                            id="previous-button" 
+                        <button
+                            className={classnames('', { 'disable': this.state.previousButtonDisabled })}
+                            id="previous-button"
                             onClick={this.handleButtonClick}>
                             Previous
                         </button>
-                        <button 
-                            className={classnames('', {'disable': this.state.nextButtonDisabled})}
-                            id="next-button" 
+                        <button
+                            className={classnames('', { 'disable': this.state.nextButtonDisabled })}
+                            id="next-button"
                             onClick={this.handleButtonClick}>
-                                Next
-                            </button>
+                            Next
+                        </button>
                         <button id="quit-button" onClick={this.handleButtonClick}>Quit</button>
                     </div>
                 </div>
             </Fragment>
         );
     }
+
 }
 
 export default Play;

@@ -38,8 +38,9 @@
     }
 
     .options-container {
-        display: inline-block;
-        width: 50%;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
     }
 
     .option {
@@ -51,7 +52,7 @@
         padding: $normal;
         transition: 0.3s linear all;
         text-align: center;
-        width: 90%;
+        width: 60%;
     }
 
     .option:hover {
@@ -64,7 +65,8 @@
     justify-content: flex-start;
     margin: 0 auto $sm auto;
     padding: $md;
-    width: 80%;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 .button-container button {
@@ -105,3 +107,54 @@
 .button-container button:last-child:hover {
     background-color: darken($red, 10%);
 }
+
+.progress-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .question-numbers {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 5px;
+    margin: 5px;
+    gap: 10px;
+   
+  }
+  
+  .question-number {
+    margin: 0 5px;
+    padding: 5px 10px;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    cursor: pointer;
+   
+  }
+  
+  .question-number.answered {
+    background-color: #57b846;
+    color: white
+  }
+  
+  .question-number.current {
+    background-color: blue; /* Change color for current question */
+    color: white
+  }
+  
+  .question-number.unanswered {
+    background-color: red; /* Change color for unanswered questions */
+    color: white
+  }
+  .correct-option {
+      background-color: green !important
+  }
+
+  .wrong-option {
+      background-color: red !important;
+  }
+
+
+  
+  
+  
